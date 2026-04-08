@@ -3,113 +3,124 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Euribor Dashboard</title>
+<title>Euribor</title>
 
 <style>
 body {
-    font-family: Arial;
+    font-family: Arial, sans-serif;
     background: #0f172a;
     color: white;
     text-align: center;
+    margin-top: 50px;
 }
 
 .container {
     display: flex;
     justify-content: center;
     gap: 20px;
-    margin-top: 40px;
     flex-wrap: wrap;
 }
 
 .card {
     background: #1e293b;
     padding: 20px;
-    border-radius: 12px;
-    width: 140px;
+    border-radius: 10px;
+    width: 120px;
 }
 
 .rate {
-    font-size: 26px;
+    font-size: 24px;
+    margin-top: 10px;
 }
 
 .change {
-    font-size: 18px;
+    margin-top: 8px;
+    font-size: 16px;
 }
 </style>
 </head>
 
 <body>
 
-<h1>Euribor korot</h1>
-<p id="updated">Ladataan...</p>
+<h2>Euribor</h2>
+<div id="status">Ladataan...</div>
 
 <div class="container" id="rates"></div>
 
 <script>
-async function fetchEuribor() {
-    try {
-        // Tämä endpoint toimii ilman CORS-ongelmia
-        const res = await fetch("https://api.allorigins.win/get?url=" + encodeURIComponent("https://www.euribor-rates.eu/en/current-euribor-rates/"));
-        const data = await res.json();
+const BASE = "https://api.allorigins.win/raw?url=";
 
-        const html = data.contents;
+const series = {
+    "1kk": "EURIBOR1MD_",
+    "3kk": "EURIBOR3MD_",
+    "6kk": "EURIBOR6MD_",
+    "12kk": "EURIBOR1YD_"
+};
 
-        // Parsitaan arvot HTML:stä
-        function extract(label) {
-            const regex = new RegExp(label + ".*?(\\d+\\.\\d+)", "s");
-            const match = html.match(regex);
-            return match ? parseFloat(match[1]) : null;
-        }
-
-        return {
-            date: new Date().toLocaleString(),
-            rates: {
-                "1M": extract("1 month"),
-                "3M": extract("3 months"),
-                "6M": extract("6 months"),
-                "12M": extract("12 months")
-            }
-        };
-
-    } catch (err) {
-        console.error(err);
-        return null;
-    }
+function buildUrl(code) {
+    return BASE + encodeURIComponent(
+        `https://sdw.ecb.europa.eu/quickviewexport.do?SERIES_KEY=FM.M.U2.EUR.RT.MM.${code}.HSTA&trans=N`
+    );
 }
 
-function render(data) {
-    const container = document.getElementById("rates");
-    container.innerHTML = "";
+function indicator(change) {
+    if (change > 0) return { arrow: "▲", color: "#ef4444" };
+    if (change < 0) return { arrow: "▼", color: "#22c55e" };
+    return { arrow: "→", color: "#94a3b8" };
+}
 
-    Object.entries(data.rates).forEach(([key, value]) => {
-        const div = document.createElement("div");
-        div.className = "card";
+async function fetchRate(code) {
+    const res = await fetch(buildUrl(code));
+    const text = await res.text();
 
-        div.innerHTML = `
-            <h3>${key}</h3>
-            <div class="rate">${value ? value.toFixed(3) + "%" : "?"}</div>
-            <div class="change">→</div>
-        `;
+    const rows = text.trim().split("\n");
 
-        container.appendChild(div);
-    });
+    if (rows.length < 3) throw "Ei dataa";
 
-    document.getElementById("updated").innerText =
-        "Päivitetty: " + data.date;
+    const latest = rows[rows.length - 1].split(",");
+    const prev = rows[rows.length - 2].split(",");
+
+    return {
+        value: parseFloat(latest[1]),
+        change: parseFloat(latest[1]) - parseFloat(prev[1])
+    };
 }
 
 async function load() {
-    const data = await fetchEuribor();
+    const container = document.getElementById("rates");
+    container.innerHTML = "";
 
-    if (!data) {
-        document.getElementById("updated").innerText = "Virhe datan haussa";
-        return;
+    try {
+        for (const [label, code] of Object.entries(series)) {
+            const data = await fetchRate(code);
+            const ind = indicator(data.change);
+
+            const div = document.createElement("div");
+            div.className = "card";
+
+            div.innerHTML = `
+                <div>${label}</div>
+                <div class="rate">${data.value.toFixed(3)}%</div>
+                <div class="change" style="color:${ind.color}">
+                    ${ind.arrow} ${data.change.toFixed(3)}
+                </div>
+            `;
+
+            container.appendChild(div);
+        }
+
+        document.getElementById("status").innerText =
+            "Päivitetty: " + new Date().toLocaleString();
+
+    } catch (err) {
+        console.error(err);
+        document.getElementById("status").innerText =
+            "Virhe datan haussa";
     }
-
-    render(data);
 }
 
 load();
+setInterval(load, 3600000);
 </script>
 
 </body>
