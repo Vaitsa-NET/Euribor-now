@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<title>Euribor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+ 
+<style>
+body {
+    margin: 0;
+    background: #0f1115;
+    color: #ffffff;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+ 
+.container {
+    max-width: 420px;
+    margin: 0 auto;
+    padding: 20px;
+}
+ 
+h1 {
+    text-align: center;
+    margin-bottom: 10px;
+}
+ 
+.updated {
+    text-align: center;
+    color: #aaa;
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+ 
+.card {
+    background: #1a1d23;
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+ 
+.term {
+    font-size: 18px;
+}
+ 
+.value {
+    font-size: 22px;
+    font-weight: bold;
+}
+</style>
+</head>
+ 
+<body>
+<div class="container">
+    <h1>Euribor</h1>
+    <div class="updated" id="updated">Päivitetään…</div>
+ 
+    <div class="card"><div class="term">1 kk</div><div class="value" id="e1">–</div></div>
+    <div class="card"><div class="term">3 kk</div><div class="value" id="e3">–</div></div>
+    <div class="card"><div class="term">6 kk</div><div class="value" id="e6">–</div></div>
+    <div class="card"><div class="term">12 kk</div><div class="value" id="e12">–</div></div>
+</div>
+ 
+<script>
+// Apufunktio ECB-datan lukemiseen
+function extractRate(json) {
+    const series = json.dataSets[0].series;
+    const key = Object.keys(series)[0];
+    const obs = series[key].observations;
+    const lastKey = Object.keys(obs).pop();
+    return obs[lastKey][0];
+}
+ 
+async function loadEuribor(id, code) {
+    const url =
+      `https://data-api.ecb.europa.eu/service/data/FM/${code}?lastNObservations=1&format=jsondata`;
+    const res = await fetch(url);
+    const json = await res.json();
+    document.getElementById(id).textContent =
+      extractRate(json).toFixed(3) + " %";
+    return json;
+}
+ 
+Promise.all([
+    loadEuribor("e1",  "M.U2.EUR.RT.MM.EURIBOR1MD_.HSTA"),
+    loadEuribor("e3",  "M.U2.EUR.RT.MM.EURIBOR3MD_.HSTA"),
+    loadEuribor("e6",  "M.U2.EUR.RT.MM.EURIBOR6MD_.HSTA"),
+    loadEuribor("e12", "M.U2.EUR.RT.MM.EURIBOR12MD_.HSTA")
+]).then(results => {
+    const date =
+      results[0].structure.dimensions.observation[0].values.pop().name;
+    document.getElementById("updated").textContent =
+      "Päivitetty: " + date;
+}).catch(() => {
+    document.getElementById("updated").textContent =
+      "Tietojen haku epäonnistui";
+});
+</script>
+</body>
+</html>
+``
+ 
+ 
+ 
+ 
