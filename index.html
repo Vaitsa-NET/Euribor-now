@@ -2,106 +2,140 @@
 <html lang="fi">
 <head>
 <meta charset="UTF-8">
-<title>Euribor</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
- 
+<title>Euribor Dashboard</title>
+
 <style>
 body {
-    margin: 0;
-    background: #0f1115;
-    color: #ffffff;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: Arial, sans-serif;
+    background: #0f172a;
+    color: #fff;
+    text-align: center;
 }
- 
-.container {
-    max-width: 420px;
-    margin: 0 auto;
-    padding: 20px;
-}
- 
+
 h1 {
-    text-align: center;
-    margin-bottom: 10px;
+    margin-top: 20px;
 }
- 
-.updated {
-    text-align: center;
-    color: #aaa;
-    font-size: 14px;
-    margin-bottom: 20px;
+
+#updated {
+    color: #94a3b8;
 }
- 
-.card {
-    background: #1a1d23;
-    border-radius: 14px;
-    padding: 16px;
-    margin-bottom: 12px;
+
+.container {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 40px;
+    flex-wrap: wrap;
 }
- 
-.term {
+
+.card {
+    background: #1e293b;
+    padding: 20px;
+    border-radius: 12px;
+    width: 140px;
+}
+
+.rate {
+    font-size: 26px;
+    margin-top: 10px;
+}
+
+.change {
     font-size: 18px;
-}
- 
-.value {
-    font-size: 22px;
-    font-weight: bold;
+    margin-top: 8px;
 }
 </style>
 </head>
- 
+
 <body>
-<div class="container">
-    <h1>Euribor</h1>
-    <div class="updated" id="updated">Päivitetään…</div>
- 
-    <div class="card"><div class="term">1 kk</div><div class="value" id="e1">–</div></div>
-    <div class="card"><div class="term">3 kk</div><div class="value" id="e3">–</div></div>
-    <div class="card"><div class="term">6 kk</div><div class="value" id="e6">–</div></div>
-    <div class="card"><div class="term">12 kk</div><div class="value" id="e12">–</div></div>
-</div>
- 
+
+<h1>Euribor korot</h1>
+<p id="updated">Ladataan...</p>
+
+<div class="container" id="rates"></div>
+
 <script>
-// Apufunktio ECB-datan lukemiseen
-function extractRate(json) {
-    const series = json.dataSets[0].series;
-    const key = Object.keys(series)[0];
-    const obs = series[key].observations;
-    const lastKey = Object.keys(obs).pop();
-    return obs[lastKey][0];
+const series = {
+    "1M": "EURIBOR1MD_",
+    "3M": "EURIBOR3MD_",
+    "6M": "EURIBOR6MD_",
+    "12M": "EURIBOR1YD_"
+};
+
+// Proxy joka sallii API-haun selaimesta
+const BASE_URL = "https://api.allorigins.win/raw?url=";
+
+// ECB data endpoint (CSV)
+function buildUrl(code) {
+    return BASE_URL + encodeURIComponent(
+        `https://sdw.ecb.europa.eu/quickviewexport.do?SERIES_KEY=FM.M.U2.EUR.RT.MM.${code}.HSTA&trans=N`
+    );
 }
- 
-async function loadEuribor(id, code) {
-    const url =
-      `https://data-api.ecb.europa.eu/service/data/FM/${code}?lastNObservations=1&format=jsondata`;
-    const res = await fetch(url);
-    const json = await res.json();
-    document.getElementById(id).textContent =
-      extractRate(json).toFixed(3) + " %";
-    return json;
+
+async function fetchRate(code) {
+    const res = await fetch(buildUrl(code));
+    const text = await res.text();
+
+    const rows = text.trim().split("\n");
+
+    // viimeisin + edellinen
+    const latest = rows[rows.length - 1].split(",");
+    const prev = rows[rows.length - 2].split(",");
+
+    return {
+        date: latest[0],
+        value: parseFloat(latest[1]),
+        change: parseFloat(latest[1]) - parseFloat(prev[1])
+    };
 }
- 
-Promise.all([
-    loadEuribor("e1",  "M.U2.EUR.RT.MM.EURIBOR1MD_.HSTA"),
-    loadEuribor("e3",  "M.U2.EUR.RT.MM.EURIBOR3MD_.HSTA"),
-    loadEuribor("e6",  "M.U2.EUR.RT.MM.EURIBOR6MD_.HSTA"),
-    loadEuribor("e12", "M.U2.EUR.RT.MM.EURIBOR12MD_.HSTA")
-]).then(results => {
-    const date =
-      results[0].structure.dimensions.observation[0].values.pop().name;
-    document.getElementById("updated").textContent =
-      "Päivitetty: " + date;
-}).catch(() => {
-    document.getElementById("updated").textContent =
-      "Tietojen haku epäonnistui";
-});
+
+function getIndicator(change) {
+    if (change > 0) return { arrow: "▲", color: "#ef4444" };
+    if (change < 0) return { arrow: "▼", color: "#22c55e" };
+    return { arrow: "→", color: "#94a3b8" };
+}
+
+async function load() {
+    const container = document.getElementById("rates");
+    container.innerHTML = "";
+
+    let lastDate = "";
+
+    for (const [label, code] of Object.entries(series)) {
+        try {
+            const data = await fetchRate(code);
+            lastDate = data.date;
+
+            const ind = getIndicator(data.change);
+
+            const div = document.createElement("div");
+            div.className = "card";
+
+            div.innerHTML = `
+                <h3>${label}</h3>
+                <div class="rate">${data.value.toFixed(3)}%</div>
+                <div class="change" style="color:${ind.color}">
+                    ${ind.arrow} ${data.change.toFixed(3)}
+                </div>
+            `;
+
+            container.appendChild(div);
+
+        } catch (err) {
+            console.error("Virhe:", err);
+        }
+    }
+
+    document.getElementById("updated").innerText =
+        "Viimeisin päivitys: " + lastDate;
+}
+
+load();
+
+// päivitä 1h välein
+setInterval(load, 3600000);
 </script>
+
 </body>
 </html>
-``
- 
- 
- 
- 
