@@ -7,18 +7,10 @@
 
 <style>
 body {
-    font-family: Arial, sans-serif;
+    font-family: Arial;
     background: #0f172a;
-    color: #fff;
+    color: white;
     text-align: center;
-}
-
-h1 {
-    margin-top: 20px;
-}
-
-#updated {
-    color: #94a3b8;
 }
 
 .container {
@@ -38,12 +30,10 @@ h1 {
 
 .rate {
     font-size: 26px;
-    margin-top: 10px;
 }
 
 .change {
     font-size: 18px;
-    margin-top: 8px;
 }
 </style>
 </head>
@@ -56,85 +46,70 @@ h1 {
 <div class="container" id="rates"></div>
 
 <script>
-const series = {
-    "1M": "EURIBOR1MD_",
-    "3M": "EURIBOR3MD_",
-    "6M": "EURIBOR6MD_",
-    "12M": "EURIBOR1YD_"
-};
+async function fetchEuribor() {
+    try {
+        // Tämä endpoint toimii ilman CORS-ongelmia
+        const res = await fetch("https://api.allorigins.win/get?url=" + encodeURIComponent("https://www.euribor-rates.eu/en/current-euribor-rates/"));
+        const data = await res.json();
 
-// Proxy joka sallii API-haun selaimesta
-const BASE_URL = "https://api.allorigins.win/raw?url=";
+        const html = data.contents;
 
-// ECB data endpoint (CSV)
-function buildUrl(code) {
-    return BASE_URL + encodeURIComponent(
-        `https://sdw.ecb.europa.eu/quickviewexport.do?SERIES_KEY=FM.M.U2.EUR.RT.MM.${code}.HSTA&trans=N`
-    );
+        // Parsitaan arvot HTML:stä
+        function extract(label) {
+            const regex = new RegExp(label + ".*?(\\d+\\.\\d+)", "s");
+            const match = html.match(regex);
+            return match ? parseFloat(match[1]) : null;
+        }
+
+        return {
+            date: new Date().toLocaleString(),
+            rates: {
+                "1M": extract("1 month"),
+                "3M": extract("3 months"),
+                "6M": extract("6 months"),
+                "12M": extract("12 months")
+            }
+        };
+
+    } catch (err) {
+        console.error(err);
+        return null;
+    }
 }
 
-async function fetchRate(code) {
-    const res = await fetch(buildUrl(code));
-    const text = await res.text();
-
-    const rows = text.trim().split("\n");
-
-    // viimeisin + edellinen
-    const latest = rows[rows.length - 1].split(",");
-    const prev = rows[rows.length - 2].split(",");
-
-    return {
-        date: latest[0],
-        value: parseFloat(latest[1]),
-        change: parseFloat(latest[1]) - parseFloat(prev[1])
-    };
-}
-
-function getIndicator(change) {
-    if (change > 0) return { arrow: "▲", color: "#ef4444" };
-    if (change < 0) return { arrow: "▼", color: "#22c55e" };
-    return { arrow: "→", color: "#94a3b8" };
-}
-
-async function load() {
+function render(data) {
     const container = document.getElementById("rates");
     container.innerHTML = "";
 
-    let lastDate = "";
+    Object.entries(data.rates).forEach(([key, value]) => {
+        const div = document.createElement("div");
+        div.className = "card";
 
-    for (const [label, code] of Object.entries(series)) {
-        try {
-            const data = await fetchRate(code);
-            lastDate = data.date;
+        div.innerHTML = `
+            <h3>${key}</h3>
+            <div class="rate">${value ? value.toFixed(3) + "%" : "?"}</div>
+            <div class="change">→</div>
+        `;
 
-            const ind = getIndicator(data.change);
-
-            const div = document.createElement("div");
-            div.className = "card";
-
-            div.innerHTML = `
-                <h3>${label}</h3>
-                <div class="rate">${data.value.toFixed(3)}%</div>
-                <div class="change" style="color:${ind.color}">
-                    ${ind.arrow} ${data.change.toFixed(3)}
-                </div>
-            `;
-
-            container.appendChild(div);
-
-        } catch (err) {
-            console.error("Virhe:", err);
-        }
-    }
+        container.appendChild(div);
+    });
 
     document.getElementById("updated").innerText =
-        "Viimeisin päivitys: " + lastDate;
+        "Päivitetty: " + data.date;
+}
+
+async function load() {
+    const data = await fetchEuribor();
+
+    if (!data) {
+        document.getElementById("updated").innerText = "Virhe datan haussa";
+        return;
+    }
+
+    render(data);
 }
 
 load();
-
-// päivitä 1h välein
-setInterval(load, 3600000);
 </script>
 
 </body>
