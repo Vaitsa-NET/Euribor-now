@@ -1,127 +1,112 @@
+ 
+ 
 <!DOCTYPE html>
 <html lang="fi">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Euribor</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+ 
 <style>
 body {
-    font-family: Arial, sans-serif;
-    background: #0f172a;
-    color: white;
-    text-align: center;
-    margin-top: 50px;
+    margin: 0;
+    background: #0f1115;
+    color: #ffffff;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
 }
-
+ 
 .container {
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-    flex-wrap: wrap;
-}
-
-.card {
-    background: #1e293b;
+    max-width: 420px;
+    margin: 0 auto;
     padding: 20px;
-    border-radius: 10px;
-    width: 120px;
 }
-
-.rate {
-    font-size: 24px;
-    margin-top: 10px;
+ 
+.date {
+    text-align: center;
+    font-size: 18px;
+    color: #cccccc;
+    margin-bottom: 24px;
 }
-
-.change {
-    margin-top: 8px;
-    font-size: 16px;
+ 
+.card {
+    background: #1a1d23;
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+ 
+.term {
+    font-size: 18px;
+}
+ 
+.value {
+    font-size: 22px;
+    font-weight: bold;
 }
 </style>
 </head>
-
+ 
 <body>
-
-<h2>Euribor</h2>
-<div id="status">Ladataan...</div>
-
-<div class="container" id="rates"></div>
-
+<div class="container">
+ 
+    <div class="date" id="date">Ladataan tietoja…</div>
+ 
+    <div class="card">
+        <div class="term">Euribor 1 kk</div>
+        <div class="value" id="e1">–</div>
+    </div>
+ 
+    <div class="card">
+        <div class="term">Euribor 3 kk</div>
+        <div class="value" id="e3">–</div>
+    </div>
+ 
+    <div class="card">
+        <div class="term">Euribor 6 kk</div>
+        <div class="value" id="e6">–</div>
+    </div>
+ 
+    <div class="card">
+        <div class="term">Euribor 12 kk</div>
+        <div class="value" id="e12">–</div>
+    </div>
+ 
+</div>
+ 
 <script>
-const BASE = "https://api.allorigins.win/raw?url=";
-
-const series = {
-    "1kk": "EURIBOR1MD_",
-    "3kk": "EURIBOR3MD_",
-    "6kk": "EURIBOR6MD_",
-    "12kk": "EURIBOR1YD_"
-};
-
-function buildUrl(code) {
-    return BASE + encodeURIComponent(
-        `https://sdw.ecb.europa.eu/quickviewexport.do?SERIES_KEY=FM.M.U2.EUR.RT.MM.${code}.HSTA&trans=N`
-    );
-}
-
-function indicator(change) {
-    if (change > 0) return { arrow: "▲", color: "#ef4444" };
-    if (change < 0) return { arrow: "▼", color: "#22c55e" };
-    return { arrow: "→", color: "#94a3b8" };
-}
-
-async function fetchRate(code) {
-    const res = await fetch(buildUrl(code));
-    const text = await res.text();
-
-    const rows = text.trim().split("\n");
-
-    if (rows.length < 3) throw "Ei dataa";
-
-    const latest = rows[rows.length - 1].split(",");
-    const prev = rows[rows.length - 2].split(",");
-
-    return {
-        value: parseFloat(latest[1]),
-        change: parseFloat(latest[1]) - parseFloat(prev[1])
-    };
-}
-
-async function load() {
-    const container = document.getElementById("rates");
-    container.innerHTML = "";
-
-    try {
-        for (const [label, code] of Object.entries(series)) {
-            const data = await fetchRate(code);
-            const ind = indicator(data.change);
-
-            const div = document.createElement("div");
-            div.className = "card";
-
-            div.innerHTML = `
-                <div>${label}</div>
-                <div class="rate">${data.value.toFixed(3)}%</div>
-                <div class="change" style="color:${ind.color}">
-                    ${ind.arrow} ${data.change.toFixed(3)}
-                </div>
-            `;
-
-            container.appendChild(div);
-        }
-
-        document.getElementById("status").innerText =
-            "Päivitetty: " + new Date().toLocaleString();
-
-    } catch (err) {
-        console.error(err);
-        document.getElementById("status").innerText =
-            "Virhe datan haussa";
-    }
-}
-
-load();
-setInterval(load, 3600000);
+/*
+  Suomen Pankin avoin API.
+  Haetaan viimeisin päiväkohtainen Euribor-rivi,
+  jossa kaikki korot ovat samalla päivämäärällä.
+*/
+fetch(
+  "https://api.boffsaopendata.fi/v1/euribor/last"
+)
+.then(response => response.json())
+.then(data => {
+    // Päivämäärä
+    document.getElementById("date").textContent =
+        "Päivämäärä: " + data.date;
+ 
+    // Euribor-arvot
+    document.getElementById("e1").textContent =
+        data["1M"].toFixed(3) + " %";
+    document.getElementById("e3").textContent =
+        data["3M"].toFixed(3) + " %";
+    document.getElementById("e6").textContent =
+        data["6M"].toFixed(3) + " %";
+    document.getElementById("e12").textContent =
+        data["12M"].toFixed(3) + " %";
+})
+.catch(() => {
+    document.getElementById("date").textContent =
+        "Tietojen haku epäonnistui";
+});
 </script>
-
+ 
 </body>
 </html>
+ 
