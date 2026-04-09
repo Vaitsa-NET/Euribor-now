@@ -1,113 +1,145 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fi">
 <head>
-<meta charset="UTF-8">
-<title>Euribor</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
- 
-<style>
-body {
-    margin: 0;
-    background: #0f1115;
-    color: #ffffff;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-}
- 
-.container {
-    max-width: 420px;
-    margin: 0 auto;
-    padding: 20px;
-}
- 
-.date {
-    text-align: center;
-    font-size: 18px;
-    color: #cccccc;
-    margin-bottom: 24px;
-}
- 
-.card {
-    background: #1a1d23;
-    border-radius: 14px;
-    padding: 16px;
-    margin-bottom: 12px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
- 
-.term {
-    font-size: 18px;
-}
- 
-.value {
-    font-size: 22px;
-    font-weight: bold;
-}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Euribor-näkymä</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: #111a2e;
+      --text: #e9eefc;
+      --muted: #a7b3d6;
+      --ok: #59d185;
+      --warn: #ffcc66;
+      --err: #ff6b6b;
+      --border: rgba(255,255,255,.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(1200px 800px at 20% 0%, #142047 0%, var(--bg) 55%);
+      color: var(--text);
+      padding: 24px;
+    }
+    .wrap { max-width: 900px; margin: 0 auto; }
+    header {
+      display: flex;
+      gap: 16px;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 18px;
+    }
+    h1 { margin: 0; font-size: 22px; letter-spacing: 0.2px; }
+    .sub { color: var(--muted); margin-top: 6px; font-size: 13px; }
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    button {
+      background: #1c2a4f;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover { filter: brightness(1.08); }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      background: rgba(17, 26, 46, .65);
+      border-radius: 10px;
+      color: var(--muted);
+      font-size: 13px;
+      user-select: none;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap: 14px;
+      margin-top: 12px;
+    }
+    @media (max-width: 760px) {
+      .grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+    .card {
+      background: rgba(17, 26, 46, .85);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px 14px 12px;
+      box-shadow: 0 10px 28px rgba(0,0,0,.25);
+      min-height: 92px;
+    }
+    .tenor { color: var(--muted); font-size: 13px; }
+    .value { font-size: 26px; margin-top: 6px; font-weight: 800; letter-spacing: .2px; }
+    .unit { color: var(--muted); font-weight: 700; margin-left: 6px; font-size: 14px; }
+    .meta {
+      margin-top: 14px;
+      padding: 14px;
+      background: rgba(17, 26, 46, .65);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .status { margin-top: 12px; font-size: 13px; color: var(--muted); display:flex; gap:10px; align-items:center; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); display:inline-block; }
+    .dot.ok { background: var(--ok); }
+    .dot.warn { background: var(--warn); }
+    .dot.err { background: var(--err); }
+    code { color: #cfe0ff; }
+    a { color: #9bc3ff; }
+  </style>
 </head>
  
 <body>
-<div class="container">
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Euribor (1 kk / 3 kk / 6 kk / 12 kk)</h1>
+        <div class="sub">Haetaan arvot omasta Cloudflare Workerista ja näytetään tässä näkymässä.</div>
+      </div>
+      <div class="controls">
+        <label class="toggle">
+          <input id="nocache" type="checkbox" />
+          Ohita välimuisti (nocache)
+        </label>
+        <button id="refresh">Päivitä</button>
+      </div>
+    </header>
  
-    <div class="date" id="date">Ladataan tietoja…</div>
+    <div class="status">
+      <span id="dot" class="dot"></span>
+      <span id="statusText">Valmis.</span>
+    </div>
  
-    <div class="card"><div class="term">Euribor 1 kk</div><div class="value" id="e1">–</div></div>
-    <div class="card"><div class="term">Euribor 3 kk</div><div class="value" id="e3">–</div></div>
-    <div class="card"><div class="term">Euribor 6 kk</div><div class="value" id="e6">–</div></div>
-    <div class="card"><div class="term">Euribor 12 kk</div><div class="value" id="e12">–</div></div>
+    <section class="grid">
+      <div class="card">
+        <div class="tenor">Euribor 1 kk</div>
+        <div class="value"><span id="v1m">—</span><span class="unit">%</span></div>
+      </div>
+      <div class="card">
+        <div class="tenor">Euribor 3 kk</div>
+        <div class="value"><span id="v3m">—</span><span class="unit">%</span></div>
+      </div>
+      <div class="card">
+        <div class="tenor">Euribor 6 kk</div>
+        <div class="value"><span id="v6m">—</span><span class="unit">%</span></div>
+      </div>
+      <div class="card">
+        <div class="tenor">Euribor 12 kk</div>
+        <div class="value"><span id="v12m">—</span><span class="unit">%</span></div>
+      </div>
+    </section>
  
-</div>
- 
-<script>
-const series = {
-  e1:  "M.U2.EUR.RT.MM.EURIBOR1MD_.HSTA",
-  e3:  "M.U2.EUR.RT.MM.EURIBOR3MD_.HSTA",
-  e6:  "M.U2.EUR.RT.MM.EURIBOR6MD_.HSTA",
-  e12: "M.U2.EUR.RT.MM.EURIBOR12MD_.HSTA"
-};
- 
-async function load(code) {
-  const url =
-    "https://data-api.ecb.europa.eu/service/data/FM/" +
-    code +
-    "?lastNObservations=1&format=jsondata";
- 
-  const res = await fetch(url);
-  const json = await res.json();
- 
-  const seriesObj = json.dataSets[0].series;
-  const seriesKey = Object.keys(seriesObj)[0];
-  const obs = seriesObj[seriesKey].observations;
- 
-  const obsKey = Object.keys(obs)[0];
-  const value = obs[obsKey][0];
- 
-  const timeDim =
-    json.structure.dimensions.observation
-      .find(d => d.id === "TIME_PERIOD");
- 
-  const date = timeDim.values[obsKey].name;
- 
-  return { value, date };
-}
- 
-Promise.all(
-  Object.entries(series).map(
-    ([id, code]) => load(code).then(r => ({ id, ...r }))
-  )
-).then(results => {
-  results.forEach(r => {
-    document.getElementById(r.id).textContent =
-      r.value.toFixed(3) + " %";
-    document.getElementById("date").textContent =
-      "Päivämäärä: " + r.date;
-  });
-}).catch(() => {
-  document.getElementById("date").textContent =
-    "Tietojen haku epäonnistui";
-});
-</script>
- 
-</body>
-</html>
+    <section class="meta" id="meta">
+      <div><strong>Päivämäärä:</strong> <span id="date">—</span></div>
+      <div><strong>Lähde:</strong> <span id="source">—</span></div>
+      <div><strong>Haettu:</strong> <span id="fetchedAt">—</span></div>
+      <div style="margin-top:8px;"><strong>API:</strong> <code id="apiShown">—</code></div>
+      <div id="sourceUrlRow" style="margin-top:6px; display:none;">
