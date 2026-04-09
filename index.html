@@ -2,79 +2,131 @@
 <html lang="fi">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Euribor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Euribor Dashboard</title>
+  <meta name="color-scheme" content="dark light" />
   <style>
-    body { font-family: Arial, sans-serif; padding: 16px; }
-    .row { margin: 8px 0; font-size: 18px; }
-    .muted { color: #666; font-size: 14px; margin-top: 10px; }
-    button { padding: 8px 12px; }
-    code { background: #f2f2f2; padding: 2px 6px; border-radius: 6px; }
-  </style>
-</head>
-<body>
+    :root{
+      --bg: #0b1020;
+      --surface: rgba(255,255,255,.06);
+      --surface2: rgba(255,255,255,.08);
+      --border: rgba(255,255,255,.10);
+      --text: #eaf0ff;
+      --muted: rgba(234,240,255,.70);
+      --muted2: rgba(234,240,255,.55);
  
-  <h2>Euribor (1kk / 3kk / 6kk / 12kk)</h2>
+      --accent: #7aa2ff;
+      --accent2:#5eead4;
+      --good: #59d185;
+      --warn: #ffcc66;
+      --bad:  #ff6b6b;
  
-  <button id="refresh">Päivitä</button>
-  <label style="margin-left:10px;">
-    <input type="checkbox" id="nocache"> Ohita välimuisti
-  </label>
- 
-  <div class="row">Päivämäärä: <b id="date">—</b></div>
-  <div class="row">1 kk: <b id="v1m">—</b> %</div>
-  <div class="row">3 kk: <b id="v3m">—</b> %</div>
-  <div class="row">6 kk: <b id="v6m">—</b> %</div>
-  <div class="row">12 kk: <b id="v12m">—</b> %</div>
- 
-  <div class="muted">Status: <span id="status">—</span></div>
-  <div class="muted">API: <code id="api">—</code></div>
- 
-  <script>
-    // ✅ TÄSSÄ se rivi on. Vaihda tarvittaessa.
-    const API_URL = "https://euribor-api.mrvaitsa.workers.dev/";
- 
-    const fmt = new Intl.NumberFormat("fi-FI", {
-      minimumFractionDigits: 3,
-      maximumFractionDigits: 3
-    });
- 
-    const $ = (id) => document.getElementById(id);
- 
-    async function load() {
-      $("status").textContent = "Haetaan…";
- 
-      const url = new URL(API_URL);
-      if ($("nocache").checked) url.searchParams.set("nocache", "1");
-      url.searchParams.set("cb", Date.now().toString()); // cache bust
- 
-      $("api").textContent = url.toString();
- 
-      try {
-        const res = await fetch(url.toString(), { cache: "no-store" });
-        if (!res.ok) throw new Error("HTTP " + res.status);
- 
-        const data = await res.json();
-        const e = data.euribor || {};
- 
-        $("date").textContent = data.date || "—";
-        $("v1m").textContent = (typeof e["1m"] === "number") ? fmt.format(e["1m"]) : "—";
-        $("v3m").textContent = (typeof e["3m"] === "number") ? fmt.format(e["3m"]) : "—";
-        $("v6m").textContent = (typeof e["6m"] === "number") ? fmt.format(e["6m"]) : "—";
-        $("v12m").textContent = (typeof e["12m"] === "number") ? fmt.format(e["12m"]) : "—";
- 
-        $("status").textContent = "OK (" + (data.source || "lähde tuntematon") + ")";
-      } catch (err) {
-        $("status").textContent = "Virhe: " + err.message;
-      }
+      --shadow: 0 14px 40px rgba(0,0,0,.35);
+      --radius: 18px;
     }
  
-    $("refresh").addEventListener("click", load);
-    window.addEventListener("load", load);
-  </script>
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      color: var(--text);
+      background:
+        radial-gradient(1100px 600px at 15% 0%, rgba(122,162,255,.25) 0%, transparent 55%),
+        radial-gradient(900px 500px at 85% 10%, rgba(94,234,212,.16) 0%, transparent 55%),
+        radial-gradient(1000px 700px at 50% 120%, rgba(255,255,255,.06) 0%, transparent 50%),
+        var(--bg);
+      padding: 26px;
+    }
  
-</body>
-</html>
+    .wrap{
+      max-width: 980px;
+      margin: 0 auto;
+    }
  
+    header{
+      display:flex;
+      align-items:flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
  
+    .title{
+      display:flex;
+      flex-direction: column;
+      gap: 6px;
+    }
  
+    .title h1{
+      margin:0;
+      font-size: 22px;
+      letter-spacing: .2px;
+      font-weight: 850;
+    }
+ 
+    .subtitle{
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+ 
+    .controls{
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      flex-wrap: wrap;
+      justify-content:flex-end;
+    }
+ 
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.05);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 13px;
+      user-select:none;
+    }
+ 
+    .btn{
+      appearance:none;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 750;
+      letter-spacing: .15px;
+      box-shadow: 0 8px 22px rgba(0,0,0,.25);
+      transition: transform .06s ease, filter .12s ease;
+    }
+    .btn:hover{ filter: brightness(1.08); }
+    .btn:active{ transform: translateY(1px); }
+    .btn:disabled{ opacity:.6; cursor:not-allowed; }
+ 
+    .grid{
+      display:grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 860px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+ 
+    .card{
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+ 
+    .card-inner{ padding: 16px; }
+ 
+    .hero{
